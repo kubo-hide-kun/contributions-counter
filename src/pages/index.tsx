@@ -11,7 +11,7 @@ import { fetchContributionCalendar } from 'src/utils/github';
 
 const TARGET_GITHUB_USER_ALIAS = 'target-github-users';
 
-export const Index: React.FC<AppProps> = () => {
+const Index: React.FC<AppProps> = () => {
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [users, setUsers] = useState<User[]>([]);
 
