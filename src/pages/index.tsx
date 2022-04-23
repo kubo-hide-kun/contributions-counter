@@ -1,5 +1,6 @@
 import { AppProps } from 'next/app';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 
@@ -7,6 +8,7 @@ import { Button } from 'src/components/Button';
 import { Ranking } from 'src/components/Ranking';
 import { TextArea } from 'src/components/TextArea';
 import { User } from 'src/entities/user';
+import { useAsync } from 'src/hooks/useAsync';
 import { fetchContributionCalendar } from 'src/utils/github';
 
 const TARGET_GITHUB_USER_ALIAS = 'target-github-users';
@@ -14,6 +16,34 @@ const TARGET_GITHUB_USER_ALIAS = 'target-github-users';
 const Index: React.FC<AppProps> = () => {
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [users, setUsers] = useState<User[]>([]);
+
+  const fn = async () => {
+    try {
+      const githubIds = textAreaRef.current.value.split(/\n/);
+      localStorage.setItem(TARGET_GITHUB_USER_ALIAS, textAreaRef.current.value);
+      const requests = githubIds.map(async (id) => {
+        const calender = await fetchContributionCalendar(id);
+        return { id, calender };
+      });
+      const responses = await Promise.all(requests);
+      setUsers(responses);
+    } catch (error) {
+      throw new Error();
+    }
+  };
+  const { isLoading, invokeFn } = useAsync(() =>
+    toast.promise(fn(), {
+      loading: '取得中...',
+      success: <b>情報の取得に成功しました。</b>,
+      error: (
+        <b>
+          情報の取得に失敗しました。
+          <br />
+          入力したGithubIdに間違いがないか確認してください。
+        </b>
+      ),
+    }),
+  );
 
   useEffect(() => {
     const beforeText = localStorage.getItem(TARGET_GITHUB_USER_ALIAS);
@@ -23,19 +53,8 @@ const Index: React.FC<AppProps> = () => {
   }, []);
 
   const handleCheckButtonClick = useCallback(() => {
-    const githubIds = textAreaRef.current.value.split(/\n/);
-    localStorage.setItem(TARGET_GITHUB_USER_ALIAS, textAreaRef.current.value);
-
-    const fn = async () => {
-      const requests = githubIds.map(async (id) => {
-        const calender = await fetchContributionCalendar(id);
-        return { id, calender };
-      });
-      const responses = await Promise.all(requests);
-      setUsers(responses);
-    };
-    fn();
-  }, []);
+    invokeFn();
+  }, [invokeFn]);
 
   return (
     <div className="flex flex-col items-center py-16">
@@ -77,9 +96,10 @@ const Index: React.FC<AppProps> = () => {
 
       <Button
         className="py-4 px-5 w-full max-w-64"
+        disabled={isLoading}
         onClick={handleCheckButtonClick}
       >
-        contribution数を取得する
+        {!isLoading ? 'contribution数を取得する' : '取得中...'}
       </Button>
     </div>
   );
